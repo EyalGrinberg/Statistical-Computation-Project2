@@ -1,0 +1,213 @@
+---
+title: "Statistical Computation Project 2"
+author: "Eyal Grinberg & Yam Rozen"
+date: "2023-06-11"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+Question 1
+
+```{r}
+#install.packages("igraph")
+library(igraph)
+graph_Q1 <- graph_from_literal(A--+B, A--+C, A--+D, A--+E, B--+C, B--+F, C--+D, C--+F, C--+G, C--+H, D--+E, D--+G, D--+H, D--+I, E--+I, F--+G, F--+J, G--+H, G--+J, H--+I, H--+J, I--+J)
+#plot(graph_Q1)
+```
+
+```{r}
+simple_paths_list <- all_simple_paths(graph = graph_Q1, from = "A", to = "J")
+#length(simple_paths_list) 44 simple paths in the graph
+```
+
+```{r}
+# creating a list of all the simple paths in the graph by their edges
+paths_list_by_edges <- list()
+idx <- 1
+for (path in simple_paths_list) {
+  path_to_add <- list()
+  vertices_by_letters <- names(path)
+  for (i in 1:(length(path)-1)) {
+    path_to_add <- append(path_to_add, paste(vertices_by_letters[i], vertices_by_letters[i+1], sep = "->"))
+  }
+  paths_list_by_edges[[idx]] <- path_to_add
+  idx <- idx + 1
+}
+```
+
+a.
+```{r}
+# one repetition of the simulation function
+one_sim_q1_a <- function(theta) {
+  
+  broken_paths <- rep(F, length(simple_paths_list)) 
+  x_edges_smaple <- rbinom(22, 1, 1-exp(-10*theta)) # sample of the broken edges
+  # Pr[X_i = 1] = Pr[exp(theta) <= 10] = 1 - exp(-10*theta)
+  names(x_edges_smaple) <- c("A->B", "A->C", "A->D", "A->E", "B->C", "B->F", "C->D", "C->F", "C->G", "C->H", "D->E", "D->G", "D->H", "D->I", "E->I", "F->G", "F->J", "G->H", "G->J", "H->I", "H->J", "I->J")
+  broken_edges <- names(x_edges_smaple)[x_edges_smaple == 1] # all the broken edges
+  
+  for(i in 1:length(paths_list_by_edges)) {
+    for (j in 1:length(paths_list_by_edges[[i]])) {
+      if(paths_list_by_edges[[i]][j] %in% broken_edges) { # check if path is broken
+        broken_paths[i] = T
+        break
+      }
+    }
+  }
+  
+  if (all(broken_paths)) { 
+    # there's no path from "A" to "J"
+    return(1)
+  }
+  return(0)
+  
+}
+```
+
+Simulation Results
+```{r}
+N1 <- 15000
+sim_q1_a_results <- replicate(N1, one_sim_q1_a(0.02))
+```
+
+```{r}
+cat("Expectation Estimator = ", mean(sim_q1_a_results), "\n")
+```
+
+```{r}
+cat("Variance Estimator = ", var(sim_q1_a_results) / N1 , "\n")
+```
+
+
+Plotting the convergence of the estimator to the Expectation
+```{r}
+q1_a_estint <- cumsum(sim_q1_a_results) / (1:N1)
+q1_a_esterr <- sqrt(cumsum((sim_q1_a_results - q1_a_estint)^2)) / (1:N1)
+plot(q1_a_estint, xlab = "Mean and Error Range", type = "l" , lwd = 2, ylim = mean(sim_q1_a_results)+70*c(-q1_a_esterr[N1],q1_a_esterr[N1]))
+lines(q1_a_estint + 2 * q1_a_esterr, col = "red", lwd = 2)
+lines(q1_a_estint - 2 * q1_a_esterr, col = "red", lwd = 2)
+```
+
+b.
+```{r}
+N2 <- 50000
+sim_q1_b_results <- replicate(N2, one_sim_q1_a(0.005))
+```
+
+```{r}
+cat("Expectation Estimator = ", mean(sim_q1_b_results), "\n")
+```
+```{r}
+cat("Variance Estimator = ", var(sim_q1_b_results) / N2 , "\n")
+```
+```{r}
+cat("Number of failure: ", sum(sim_q1_b_results == 1), "\n")
+```
+
+Plotting the convergence of the estimator to the Expectation
+```{r}
+q1_b_estint <- cumsum(sim_q1_b_results) / (1:N2)
+q1_b_esterr <- sqrt(cumsum((sim_q1_b_results - q1_b_estint)^2)) / (1:N2)
+plot(q1_b_estint, xlab = "Mean and Error Range", type = "l" , lwd = 2, ylim = mean(sim_q1_b_results)+70*c(-q1_b_esterr[N2],q1_b_esterr[N2]))
+lines(q1_b_estint + 2 * q1_b_esterr, col = "red", lwd = 2)
+lines(q1_b_estint - 2 * q1_b_esterr, col = "red", lwd = 2)
+```
+
+
+c.
+```{r}
+IS_one_sim_q1_c <- function(nominal_theta, importance_theta) {
+  
+  broken_paths <- rep(F, length(simple_paths_list)) 
+  x_edges_smaple_IS <- rbinom(22, 1, 1-exp(-10*importance_theta)) # sample of the broken edges
+  names(x_edges_smaple_IS) <- c("A->B", "A->C", "A->D", "A->E", "B->C", "B->F", "C->D", "C->F", "C->G", "C->H", "D->E", "D->G", "D->H", "D->I", "E->I", "F->G", "F->J", "G->H", "G->J", "H->I", "H->J", "I->J")
+  broken_edges <- names(x_edges_smaple_IS)[x_edges_smaple_IS == 1] # all the broken edges
+  
+  for(i in 1:length(paths_list_by_edges)) {
+    for (j in 1:length(paths_list_by_edges[[i]])) {
+      if(paths_list_by_edges[[i]][j] %in% broken_edges) { # check if path is broken
+        broken_paths[i] = T
+        break
+      }
+    }
+  }
+  
+  if (all(broken_paths)) { 
+    # there's no path from "A" to "J"
+    return(prod((dbinom(x_edges_smaple_IS, 1, (1-exp(-10*nominal_theta))))/
+                  (dbinom(x_edges_smaple_IS, 1, (1-exp(-10*importance_theta))))))
+  }
+  return(0)  
+  
+}
+```
+
+Simulation Results
+```{r}
+N1 <- 15000
+sim_q1_c_results <- replicate(N1, IS_one_sim_q1_c(0.02, 0.05))
+```
+
+```{r}
+cat("Expectation Estimator = ", mean(sim_q1_c_results), "\n")
+```
+
+```{r}
+cat("Variance Estimator = ", var(sim_q1_c_results) / N1 , "\n")
+```
+
+
+Plotting the convergence of the estimator to the Expectation
+```{r}
+q1_c_estint <- cumsum(sim_q1_c_results) / (1:N1)
+q1_c_esterr <- sqrt(cumsum((sim_q1_c_results - q1_c_estint)^2)) / (1:N1)
+plot(q1_c_estint, xlab = "Mean and Error Range", type = "l" , lwd = 2, ylim = mean(sim_q1_c_results)+70*c(-q1_c_esterr[N1],q1_c_esterr[N1]))
+lines(q1_c_estint + 2 * q1_c_esterr, col = "red", lwd = 2)
+lines(q1_c_estint - 2 * q1_c_esterr, col = "red", lwd = 2)
+```
+
+Expectation Estimator in both clauses a and c is ~ 0.005
+Variance Estimator in both clauses a and c is ~ 3.3e-07
+
+
+d.
+```{r}
+N2 <- 50000
+sim_q1_d_results <- replicate(N2, IS_one_sim_q1_c(0.005, 0.02))
+```
+
+```{r}
+cat("Expectation Estimator = ", mean(sim_q1_d_results), "\n")
+```
+
+```{r}
+cat("Variance Estimator = ", var(sim_q1_d_results) / N2 , "\n")
+```
+
+```{r}
+cat("Number of failure: ", sum(sim_q1_d_results > 0), "\n")
+```
+
+Plotting the convergence of the estimator to the Expectation
+```{r}
+q1_d_estint <- cumsum(sim_q1_d_results) / (1:N2)
+q1_d_esterr <- sqrt(cumsum((sim_q1_d_results - q1_d_estint)^2)) / (1:N2)
+plot(q1_d_estint, xlab = "Mean and Error Range", type = "l" , lwd = 2, ylim = mean(sim_q1_d_results)+70*c(-q1_d_esterr[N2],q1_d_esterr[N2]))
+lines(q1_d_estint + 2 * q1_d_esterr, col = "red", lwd = 2)
+lines(q1_d_estint - 2 * q1_d_esterr, col = "red", lwd = 2)
+```
+
+
+Question 1 results:
+
+a. Expectation Estimator = 0.005066667 , Variance Estimator = 3.360888e-07 
+
+b. Expectation Estimator = 4e-05 , Variance Estimator = 7.99984e-10 , Number of failure: 2 
+
+c. Expectation Estimator = 0.005269832 , Variance Estimator = 3.229226e-07 
+
+d. Expectation Estimator = 2.536465e-05 , Variance Estimator = 2.240653e-11 , Number of failure: 285 
+
+Indeed, the Importance Sampling method helped us to get more cases of system failure, and kept the Expectation and Variance estimators approximately the same.
